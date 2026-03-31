@@ -185,6 +185,13 @@ class AddTaskScreen extends StatelessWidget {
                 border: OutlineInputBorder(),
               ),
             ),
+            TextField(
+              controller: deadlineController,
+              decoration: InputDecoration(
+                labelText: "Deadline zadania",
+                border: OutlineInputBorder(),
+              ),
+            ),
             ElevatedButton(
               onPressed: () {
                 final newTask = Task(
