@@ -1,11 +1,5 @@
 import 'package:flutter/material.dart';
-
-class Task {
-  final String title;
-  final String deadline;
-
-  Task({required this.title, required this.deadline});
-}
+import 'task_repository.dart';
 
 void main() {
   runApp(MyApp());
@@ -44,29 +38,20 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         colorScheme: .fromSeed(seedColor: Colors.deepPurple),
       ),
-      home: const MyHomePage(title: 'KrakFlow'),
+      home: Scaffold(
+          body: const MyHomePage(title: 'KrakFlow'),
+    ),
     );
   }
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
   List<Task> tasks = [
     Task(title: "Przyjsc do lekarza", deadline:"jutro"),
     Task(title: "Zjesc kolacje", deadline:"wczoraj"),
     Task(title: "Przyniejsc smieci", deadline: "pojutrze"),
     Task(title: "Umyc pralke", deadline: "po pojutrze"),
   ];
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,20 +85,45 @@ class _MyHomePageState extends State<MyHomePage> {
             ),
             Expanded(
               child: ListView.builder(
-                itemCount: tasks.length,
+                itemCount: TaskRepository.tasks.length,
                 itemBuilder: (context, index) {
-                  return TaskCard(title: tasks[index].title, subtitle: tasks[index].deadline, icon: Icons.check);
+                  return TaskCard(title: TaskRepository.tasks[index].title, subtitle: TaskRepository.tasks[index].deadline, icon: Icons.check);
                 },
               ),
             ),
           ],
-        )
+        ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
+        onPressed: () async {
+          final Task? newTask = await Navigator.push(
+            context,
+            PageRouteBuilder(
+              pageBuilder: (context, animation, secondaryAnimation) => AddTaskScreen(),
+              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+                final offsetAnimation = Tween<Offset>(
+                  begin: Offset(0.5, 1.0),
+                  end: Offset.zero,
+                ).animate(animation);
+                return SlideTransition(
+                  position: offsetAnimation,
+                  child: child,
+                );
+              },
+            ),
+          );
+
+
+          if (newTask != null) {
+            setState(() {
+              TaskRepository.tasks.add(newTask);
+            });
+          }
+        },
+
+        child: Icon(Icons.add),
       ),
+
     );
   }
 }
@@ -146,6 +156,48 @@ class TaskCard extends StatelessWidget {
         leading: Icon(icon),
         title: Text(title),
         subtitle: Text(subtitle),
+
+      ),
+    );
+  }
+}
+
+class AddTaskScreen extends StatelessWidget {
+  AddTaskScreen({super.key});
+  final TextEditingController titleController = TextEditingController();
+  final TextEditingController deadlineController = TextEditingController();
+// controller dla priorytetu
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text("Nowe zadanie"),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: InputDecoration(
+                labelText: "Tytuł zadania",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final newTask = Task(
+                  title: titleController.text,
+                  deadline: deadlineController.text,
+                );
+                Navigator.pop(context, newTask);
+              },
+              child: Text("Zapisz"),
+            )
+
+          ],
+        ),
       ),
     );
   }
