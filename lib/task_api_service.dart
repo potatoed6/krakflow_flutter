@@ -29,7 +29,7 @@ class TaskApiService {
         return Task(
           title: todo["todo"],
           deadline: priority,
-          done: todo["done"],
+          done: todo["completed"] ?? false,
         );
       }).toList();
     } else {
