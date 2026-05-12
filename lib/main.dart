@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'task_repository.dart';
-
+import 'task_api_service.dart';
 void main() {
   runApp(MyApp());
 }
@@ -30,10 +30,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  // Zadanie 4: zmienna filtra
   String selectedFilter = "wszystkie";
-
-  // Zadanie 4: logika filtrowania
   List<Task> get filteredTasks {
     if (selectedFilter == "wykonane") {
       return TaskRepository.tasks.where((task) => task.done).toList();
@@ -42,8 +39,6 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     return TaskRepository.tasks;
   }
-
-  // Zadanie 5: AlertDialog + usuwanie wszystkich zadań
   void _showDeleteAllDialog() {
     showDialog(
       context: context,
@@ -79,18 +74,16 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final tasks = filteredTasks;
+    //final tasks = filteredTasks;
 
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: Text(widget.title),
-        // Zadanie 5: ikona kosza w AppBar
         actions: [
           IconButton(
             icon: Icon(
               Icons.delete,
-              // Opcjonalne: wyszarz ikonę gdy lista jest pusta
               color: TaskRepository.tasks.isEmpty ? Colors.grey : null,
             ),
             onPressed: TaskRepository.tasks.isEmpty
@@ -113,7 +106,6 @@ class _MyHomePageState extends State<MyHomePage> {
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
           ),
-          // Zadanie 4: FilterBar jako osobny widget (rozszerzenie opcjonalne)
           FilterBar(
             selectedFilter: selectedFilter,
             onFilterChanged: (filter) {
@@ -123,59 +115,39 @@ class _MyHomePageState extends State<MyHomePage> {
             },
           ),
           Expanded(
-            child: ListView.builder(
-              itemCount: tasks.length,
-              itemBuilder: (context, index) {
-                final task = tasks[index];
-                // Zadanie 1: Dismissible do usuwania zadań
-                return Dismissible(
-                  key: ValueKey(task.title + task.deadline),
-                  direction: DismissDirection.endToStart,
-                  background: Container(
-                    alignment: Alignment.centerRight,
-                    padding: const EdgeInsets.symmetric(horizontal: 20),
-                    color: Colors.red,
-                    child: const Icon(Icons.delete, color: Colors.white),
-                  ),
-                  onDismissed: (direction) {
-                    final removedTitle = task.title;
-                    setState(() {
-                      TaskRepository.tasks.remove(task);
-                    });
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text("Usunięto: $removedTitle"),
-                      ),
+            child: FutureBuilder<List<Task>>(
+              future: TaskApiService.fetchTasks(),
+              builder: (context, snapshot) {
+                if (snapshot.connectionState ==
+                    ConnectionState.waiting) {
+                  return const Center(
+                    child: CircularProgressIndicator(),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return Center(
+                    child: Text(
+                      "Blad: ${snapshot.error}",
+                    ),
+                  );
+                }
+
+                final tasks = snapshot.data ?? [];
+
+                return ListView.builder(
+                  itemCount: tasks.length,
+                  itemBuilder: (context, index) {
+                    final task = tasks[index];
+
+                    return TaskCard(
+                      title: task.title,
+                      subtitle: "deadline: ${task.deadline}",
+                      done: task.done,
+                      onChanged: (value) {
+                        task.done = value!;
+                      },
                     );
                   },
-                  child: TaskCard(
-                    title: task.title,
-                    subtitle: "termin: ${task.deadline}",
-                    done: task.done,
-                    // Zadanie 3: zmiana checkboxa
-                    onChanged: (value) {
-                      setState(() {
-                        task.done = value!;
-                      });
-                    },
-                    // Zadanie 2: kliknięcie otwiera ekran edycji
-                    onTap: () async {
-                      final Task? updatedTask = await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => EditTaskScreen(task: task),
-                        ),
-                      );
-                      if (updatedTask != null) {
-                        setState(() {
-                          final realIndex = TaskRepository.tasks.indexOf(task);
-                          if (realIndex != -1) {
-                            TaskRepository.tasks[realIndex] = updatedTask;
-                          }
-                        });
-                      }
-                    },
-                  ),
                 );
               },
             ),
@@ -214,7 +186,6 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 }
 
-// Zadanie 4 (rozszerzenie): osobny widget FilterBar
 class FilterBar extends StatelessWidget {
   final String selectedFilter;
   final Function(String) onFilterChanged;
@@ -236,7 +207,6 @@ class FilterBar extends StatelessWidget {
           return TextButton(
             onPressed: () => onFilterChanged(filter),
             style: TextButton.styleFrom(
-              // Zadanie 4: wyróżnij aktywny filtr kolorem
               foregroundColor: isActive
                   ? Theme.of(context).colorScheme.primary
                   : Colors.grey,
@@ -254,8 +224,6 @@ class FilterBar extends StatelessWidget {
     );
   }
 }
-
-// Zadanie 3: TaskCard z Checkbox
 class TaskCard extends StatelessWidget {
   final String title;
   final String subtitle;
@@ -284,9 +252,7 @@ class TaskCard extends StatelessWidget {
         title: Text(
           title,
           style: TextStyle(
-            // Zadanie 3: przekreślenie dla wykonanych zadań
             decoration: done ? TextDecoration.lineThrough : TextDecoration.none,
-            // Zadanie 3: jaśniejszy kolor dla wykonanych
             color: done ? Colors.grey : null,
           ),
         ),
@@ -351,7 +317,6 @@ class AddTaskScreen extends StatelessWidget {
   }
 }
 
-// Zadanie 2: ekran edycji zadania
 class EditTaskScreen extends StatefulWidget {
   final Task task;
 
@@ -368,7 +333,6 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
   @override
   void initState() {
     super.initState();
-    // Wypełniamy pola danymi istniejącego zadania
     titleController = TextEditingController(text: widget.task.title);
     deadlineController = TextEditingController(text: widget.task.deadline);
   }

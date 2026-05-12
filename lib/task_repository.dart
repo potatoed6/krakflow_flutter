@@ -1,9 +1,9 @@
 class Task {
   final String title;
   final String deadline;
-  bool done; // musi być var (nie final), żeby Checkbox mógł zmieniać stan
+  bool done;
 
-  Task({required this.title, required this.deadline, this.done = false});
+  Task({required this.title,required this.deadline,this.done = false,});
 }
 
 class TaskRepository {
