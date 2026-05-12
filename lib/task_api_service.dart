@@ -22,13 +22,15 @@ class TaskApiService {
 
       final priorities = ["niski", "sredni", "wysoki"];
 
-      return todos.map((todo) {
+      return todos.map<Task>((todo) {
         final priority =
         priorities[random.nextInt(priorities.length)];
 
         return Task(
+          id: todo["id"],
           title: todo["todo"],
-          deadline: priority,
+          deadline: "brak deadline",
+          priority: priority,
           done: todo["completed"] ?? false,
         );
       }).toList();

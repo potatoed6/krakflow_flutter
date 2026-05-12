@@ -1,7 +1,14 @@
 import 'package:flutter/material.dart';
 import 'task_repository.dart';
 import 'task_api_service.dart';
-void main() {
+import 'package:hive_ce_flutter/hive_flutter.dart';
+
+import 'task_local_database.dart';
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter(); // inicjalizacja
+  await Hive.openBox("tasks"); // otwarcie kontenera
   runApp(MyApp());
 }
 
@@ -30,6 +37,7 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
+  late Future<List<Task>> tasksFuture;
   String selectedFilter = "wszystkie";
   List<Task> get filteredTasks {
     if (selectedFilter == "wykonane") {
@@ -39,6 +47,18 @@ class _MyHomePageState extends State<MyHomePage> {
     }
     return TaskRepository.tasks;
   }
+
+  @override
+  void initState() {
+    super.initState();
+    tasksFuture = loadTasks();
+  }
+
+  Future<List<Task>> loadTasks() async {
+    await TaskSyncService.loadInitialDataIfNeeded();
+    return TaskLocalDatabase.getTasks();
+  }
+
   void _showDeleteAllDialog() {
     showDialog(
       context: context,
@@ -116,7 +136,7 @@ class _MyHomePageState extends State<MyHomePage> {
           ),
           Expanded(
             child: FutureBuilder<List<Task>>(
-              future: TaskApiService.fetchTasks(),
+              future: tasksFuture,
               builder: (context, snapshot) {
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
@@ -145,6 +165,20 @@ class _MyHomePageState extends State<MyHomePage> {
                       done: task.done,
                       onChanged: (value) {
                         task.done = value!;
+                      },
+                      onTap: () async {
+                        final Task? updatedTask = await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => EditTaskScreen(task: task),
+                          ),
+                        );
+                        if (updatedTask != null) {
+                          await TaskLocalDatabase.updateTask(updatedTask);
+                          setState(() {
+                            tasksFuture = loadTasks();
+                          });
+                        }
                       },
                     );
                   },
@@ -303,6 +337,7 @@ class AddTaskScreen extends StatelessWidget {
             ElevatedButton(
               onPressed: () {
                 final newTask = Task(
+                  id: DateTime.now().millisecondsSinceEpoch,
                   title: titleController.text,
                   deadline: deadlineController.text,
                 );
@@ -327,14 +362,23 @@ class EditTaskScreen extends StatefulWidget {
 }
 
 class _EditTaskScreenState extends State<EditTaskScreen> {
+
+  late Future<List<Task>> tasksFuture;
   late TextEditingController titleController;
   late TextEditingController deadlineController;
 
   @override
   void initState() {
     super.initState();
+
     titleController = TextEditingController(text: widget.task.title);
     deadlineController = TextEditingController(text: widget.task.deadline);
+
+    tasksFuture = loadTasks();
+  }
+  Future<List<Task>> loadTasks() async {
+    await TaskSyncService.loadInitialDataIfNeeded();
+    return TaskLocalDatabase.getTasks();
   }
 
   @override
@@ -375,8 +419,10 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
               onPressed: () {
                 // Zwracamy zaktualizowane zadanie zachowując stan done
                 final updatedTask = Task(
+                  id: widget.task.id,
                   title: titleController.text,
                   deadline: deadlineController.text,
+                  priority: widget.task.priority,
                   done: widget.task.done,
                 );
                 Navigator.pop(context, updatedTask);
@@ -387,5 +433,18 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
         ),
       ),
     );
+  }
+}
+
+class TaskSyncService {
+  static Future<void> loadInitialDataIfNeeded() async {
+// jeżeli lokalna baza ma już dane to nie pobieramy niczego
+    if (!TaskLocalDatabase.isEmpty()) {
+      return;
+    }
+// jeżeli nie ma to pobierz dane z API i zapisz w bazie
+
+  final tasks = await TaskApiService.fetchTasks();
+    await TaskLocalDatabase.saveTasks(tasks);
   }
 }
