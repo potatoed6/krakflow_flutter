@@ -5,17 +5,23 @@ void main() {
   runApp(MyApp());
 }
 
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'KrakFlow',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+      ),
+      home: const MyHomePage(title: 'KrakFlow'),
+    );
+  }
+}
+
 class MyHomePage extends StatefulWidget {
   const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
 
   final String title;
 
@@ -23,86 +29,170 @@ class MyHomePage extends StatefulWidget {
   State<MyHomePage> createState() => _MyHomePageState();
 }
 
-class MyApp extends StatelessWidget {
-  List<Task> tasks = [
-    Task(title: "Przyjsc do lekarza", deadline:"jutro"),
-    Task(title: "Zjesc kolacje", deadline:"wczoraj"),
-    Task(title: "Przyniejsc smieci", deadline: "pojutrze"),
-    Task(title: "Umyc pralke", deadline: "po pojutrze"),
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(
-        colorScheme: .fromSeed(seedColor: Colors.deepPurple),
-      ),
-      home: Scaffold(
-          body: const MyHomePage(title: 'KrakFlow'),
-    ),
-    );
-  }
-}
-
 class _MyHomePageState extends State<MyHomePage> {
-  List<Task> tasks = [
-    Task(title: "Przyjsc do lekarza", deadline:"jutro"),
-    Task(title: "Zjesc kolacje", deadline:"wczoraj"),
-    Task(title: "Przyniejsc smieci", deadline: "pojutrze"),
-    Task(title: "Umyc pralke", deadline: "po pojutrze"),
-  ];
+  // Zadanie 4: zmienna filtra
+  String selectedFilter = "wszystkie";
 
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(
-                top: 25,
-                bottom: 15,
-                left: 35,
-              ),
-              child: MyTitle(),
+  // Zadanie 4: logika filtrowania
+  List<Task> get filteredTasks {
+    if (selectedFilter == "wykonane") {
+      return TaskRepository.tasks.where((task) => task.done).toList();
+    } else if (selectedFilter == "do zrobienia") {
+      return TaskRepository.tasks.where((task) => !task.done).toList();
+    }
+    return TaskRepository.tasks;
+  }
+
+  // Zadanie 5: AlertDialog + usuwanie wszystkich zadań
+  void _showDeleteAllDialog() {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text("Potwierdzenie"),
+          content: const Text("Czy na pewno chcesz usunąć wszystkie zadania?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Anuluj"),
             ),
-            Expanded(
-              child: ListView.builder(
-                itemCount: TaskRepository.tasks.length,
-                itemBuilder: (context, index) {
-                  return TaskCard(title: TaskRepository.tasks[index].title, subtitle: TaskRepository.tasks[index].deadline, icon: Icons.check);
-                },
+            TextButton(
+              onPressed: () {
+                setState(() {
+                  TaskRepository.tasks.clear();
+                });
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Usunięto wszystkie zadania")),
+                );
+              },
+              child: const Text(
+                "Usuń",
+                style: TextStyle(color: Colors.red),
               ),
             ),
           ],
-        ),
+        );
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final tasks = filteredTasks;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        title: Text(widget.title),
+        // Zadanie 5: ikona kosza w AppBar
+        actions: [
+          IconButton(
+            icon: Icon(
+              Icons.delete,
+              // Opcjonalne: wyszarz ikonę gdy lista jest pusta
+              color: TaskRepository.tasks.isEmpty ? Colors.grey : null,
+            ),
+            onPressed: TaskRepository.tasks.isEmpty
+                ? () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Lista zadań jest już pusta")),
+              );
+            }
+                : _showDeleteAllDialog,
+          ),
+        ],
+      ),
+      body: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.only(top: 25, bottom: 5, left: 35),
+            child: Text(
+              "Masz dziś ${TaskRepository.tasks.length} zadania",
+              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+            ),
+          ),
+          // Zadanie 4: FilterBar jako osobny widget (rozszerzenie opcjonalne)
+          FilterBar(
+            selectedFilter: selectedFilter,
+            onFilterChanged: (filter) {
+              setState(() {
+                selectedFilter = filter;
+              });
+            },
+          ),
+          Expanded(
+            child: ListView.builder(
+              itemCount: tasks.length,
+              itemBuilder: (context, index) {
+                final task = tasks[index];
+                // Zadanie 1: Dismissible do usuwania zadań
+                return Dismissible(
+                  key: ValueKey(task.title + task.deadline),
+                  direction: DismissDirection.endToStart,
+                  background: Container(
+                    alignment: Alignment.centerRight,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    color: Colors.red,
+                    child: const Icon(Icons.delete, color: Colors.white),
+                  ),
+                  onDismissed: (direction) {
+                    final removedTitle = task.title;
+                    setState(() {
+                      TaskRepository.tasks.remove(task);
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(
+                        content: Text("Usunięto: $removedTitle"),
+                      ),
+                    );
+                  },
+                  child: TaskCard(
+                    title: task.title,
+                    subtitle: "termin: ${task.deadline}",
+                    done: task.done,
+                    // Zadanie 3: zmiana checkboxa
+                    onChanged: (value) {
+                      setState(() {
+                        task.done = value!;
+                      });
+                    },
+                    // Zadanie 2: kliknięcie otwiera ekran edycji
+                    onTap: () async {
+                      final Task? updatedTask = await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => EditTaskScreen(task: task),
+                        ),
+                      );
+                      if (updatedTask != null) {
+                        setState(() {
+                          final realIndex = TaskRepository.tasks.indexOf(task);
+                          if (realIndex != -1) {
+                            TaskRepository.tasks[realIndex] = updatedTask;
+                          }
+                        });
+                      }
+                    },
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           final Task? newTask = await Navigator.push(
             context,
             PageRouteBuilder(
-              pageBuilder: (context, animation, secondaryAnimation) => AddTaskScreen(),
-              transitionsBuilder: (context, animation, secondaryAnimation, child) {
+              pageBuilder: (context, animation, secondaryAnimation) =>
+                  AddTaskScreen(),
+              transitionsBuilder:
+                  (context, animation, secondaryAnimation, child) {
                 final offsetAnimation = Tween<Offset>(
-                  begin: Offset(0.5, 1.0),
+                  begin: const Offset(0.5, 1.0),
                   end: Offset.zero,
                 ).animate(animation);
                 return SlideTransition(
@@ -112,51 +202,101 @@ class _MyHomePageState extends State<MyHomePage> {
               },
             ),
           );
-
-
           if (newTask != null) {
             setState(() {
               TaskRepository.tasks.add(newTask);
             });
           }
         },
-
-        child: Icon(Icons.add),
+        child: const Icon(Icons.add),
       ),
-
     );
   }
 }
 
-class MyTitle extends StatelessWidget {
-  const MyTitle({super.key});
+// Zadanie 4 (rozszerzenie): osobny widget FilterBar
+class FilterBar extends StatelessWidget {
+  final String selectedFilter;
+  final Function(String) onFilterChanged;
+
+  const FilterBar({
+    super.key,
+    required this.selectedFilter,
+    required this.onFilterChanged,
+  });
 
   @override
-  Widget build(BuildContext context){
-    return Text("Dzisiejsze zadania",
-    style: TextStyle(
-      fontSize: 22,
-      fontWeight: FontWeight.bold,
-    ),
+  Widget build(BuildContext context) {
+    final filters = ["wszystkie", "do zrobienia", "wykonane"];
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16),
+      child: Row(
+        children: filters.map((filter) {
+          final isActive = selectedFilter == filter;
+          return TextButton(
+            onPressed: () => onFilterChanged(filter),
+            style: TextButton.styleFrom(
+              // Zadanie 4: wyróżnij aktywny filtr kolorem
+              foregroundColor: isActive
+                  ? Theme.of(context).colorScheme.primary
+                  : Colors.grey,
+              textStyle: TextStyle(
+                fontWeight:
+                isActive ? FontWeight.bold : FontWeight.normal,
+              ),
+            ),
+            child: Text(
+              filter[0].toUpperCase() + filter.substring(1),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
 
+// Zadanie 3: TaskCard z Checkbox
 class TaskCard extends StatelessWidget {
   final String title;
   final String subtitle;
-  final IconData icon;
+  final bool done;
+  final ValueChanged<bool?>? onChanged;
+  final VoidCallback? onTap;
 
-  const TaskCard({super.key, required this.title, required this.subtitle, required this.icon});
+  const TaskCard({
+    super.key,
+    required this.title,
+    required this.subtitle,
+    required this.done,
+    this.onChanged,
+    this.onTap,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        leading: Icon(icon),
-        title: Text(title),
-        subtitle: Text(subtitle),
-
+        onTap: onTap,
+        leading: Checkbox(
+          value: done,
+          onChanged: onChanged,
+        ),
+        title: Text(
+          title,
+          style: TextStyle(
+            // Zadanie 3: przekreślenie dla wykonanych zadań
+            decoration: done ? TextDecoration.lineThrough : TextDecoration.none,
+            // Zadanie 3: jaśniejszy kolor dla wykonanych
+            color: done ? Colors.grey : null,
+          ),
+        ),
+        subtitle: Text(
+          subtitle,
+          style: TextStyle(
+            color: done ? Colors.grey[400] : null,
+          ),
+        ),
+        trailing: const Icon(Icons.chevron_right),
       ),
     );
   }
@@ -166,32 +306,34 @@ class AddTaskScreen extends StatelessWidget {
   AddTaskScreen({super.key});
   final TextEditingController titleController = TextEditingController();
   final TextEditingController deadlineController = TextEditingController();
-// controller dla priorytetu
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text("Nowe zadanie"),
+        title: const Text("Nowe zadanie"),
       ),
       body: Padding(
-        padding: EdgeInsets.all(16),
+        padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             TextField(
               controller: titleController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Tytuł zadania",
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 12),
             TextField(
               controller: deadlineController,
-              decoration: InputDecoration(
+              decoration: const InputDecoration(
                 labelText: "Deadline zadania",
                 border: OutlineInputBorder(),
               ),
             ),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
                 final newTask = Task(
@@ -200,9 +342,83 @@ class AddTaskScreen extends StatelessWidget {
                 );
                 Navigator.pop(context, newTask);
               },
-              child: Text("Zapisz"),
-            )
+              child: const Text("Zapisz"),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
+// Zadanie 2: ekran edycji zadania
+class EditTaskScreen extends StatefulWidget {
+  final Task task;
+
+  const EditTaskScreen({super.key, required this.task});
+
+  @override
+  State<EditTaskScreen> createState() => _EditTaskScreenState();
+}
+
+class _EditTaskScreenState extends State<EditTaskScreen> {
+  late TextEditingController titleController;
+  late TextEditingController deadlineController;
+
+  @override
+  void initState() {
+    super.initState();
+    // Wypełniamy pola danymi istniejącego zadania
+    titleController = TextEditingController(text: widget.task.title);
+    deadlineController = TextEditingController(text: widget.task.deadline);
+  }
+
+  @override
+  void dispose() {
+    titleController.dispose();
+    deadlineController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text("Edytuj zadanie"),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            TextField(
+              controller: titleController,
+              decoration: const InputDecoration(
+                labelText: "Tytuł zadania",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: deadlineController,
+              decoration: const InputDecoration(
+                labelText: "Deadline zadania",
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () {
+                // Zwracamy zaktualizowane zadanie zachowując stan done
+                final updatedTask = Task(
+                  title: titleController.text,
+                  deadline: deadlineController.text,
+                  done: widget.task.done,
+                );
+                Navigator.pop(context, updatedTask);
+              },
+              child: const Text("Zapisz zmiany"),
+            ),
           ],
         ),
       ),
