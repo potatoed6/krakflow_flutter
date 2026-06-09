@@ -2,13 +2,18 @@ import 'package:flutter/material.dart';
 import 'task_repository.dart';
 import 'task_api_service.dart';
 import 'package:hive_ce_flutter/hive_flutter.dart';
+import 'dart:developer';
 
 import 'task_local_database.dart';
+import import 'services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Hive.initFlutter(); // inicjalizacja
   await Hive.openBox("tasks"); // otwarcie kontenera
+  log("Starting MyApp");
+  WidgetsFlutterBinding.ensureInitialized();
+  await NotificationService.init();
   runApp(MyApp());
 }
 
@@ -417,6 +422,10 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
             const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () {
+
+                final isDone = value ?? false;
+                final wasDone = task.done;
+
                 // Zwracamy zaktualizowane zadanie zachowując stan done
                 final updatedTask = Task(
                   id: widget.task.id,
@@ -425,6 +434,14 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
                   priority: widget.task.priority,
                   done: widget.task.done,
                 );
+
+                await TaskLocalDatabase.updateTask(updatedTask);
+                if (!wasDone && isDone) {
+                  await NotificationService.showTaskDoneNotification(task.title);
+                }
+                setState(() {
+                  tasksFuture = loadTasks();
+                });
                 Navigator.pop(context, updatedTask);
               },
               child: const Text("Zapisz zmiany"),
@@ -439,9 +456,9 @@ class _EditTaskScreenState extends State<EditTaskScreen> {
 class TaskSyncService {
   static Future<void> loadInitialDataIfNeeded() async {
 // jeżeli lokalna baza ma już dane to nie pobieramy niczego
-    if (!TaskLocalDatabase.isEmpty()) {
-      return;
-    }
+    //if (!TaskLocalDatabase.isEmpty()) {
+    //  return;
+    //}
 // jeżeli nie ma to pobierz dane z API i zapisz w bazie
 
   final tasks = await TaskApiService.fetchTasks();
